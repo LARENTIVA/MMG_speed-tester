@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Modern Internet Speed Tester</title>
+  <!-- Leaflet CSS for Server Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" integrity="sha256-sA+e2D3RvjNQCy4mLd82jBJQzGf7rLHFp0n+464J8dM=" crossorigin=""/>
+  <style>
+    /* Animated background gradient */
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    /* Global Styles */
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+      background: linear-gradient(135deg, #283048, #859398);
+      background-size: 200% 200%;
+      animation: gradientBG 10s ease infinite;
+    }
+    /* Light Mode */
+    body.light-mode {
+      background: linear-gradient(135deg, #283048, #859398);
+      color: #333;
+    }
+    .card.light-mode {
+      background: #fff;
+      color: #333;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+    /* Dark Mode */
+    body.dark-mode {
+      background: #1e1e1e;
+      color: #ccc;
+      animation: none;
+    }
+    .card.dark-mode {
+      background: #333;
+      color: #ccc;
+      box-shadow: 0 10px 25px rgba(255, 255, 255, 0.1);
+    }
+    .card {
+      border-radius: 16px;
+      padding: 30px;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      transition: background 0.3s, color 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    /* Top Bar for Icons */
+    .top-bar {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 10px;
+    }
+    .top-bar button {
+      background: none;
+      border: none;
+      font-size: 1.6em;
+      cursor: pointer;
+      color: inherit;
+      transition: transform 0.2s ease;
+    }
+    .top-bar button:hover {
+      transform: scale(1.1);
+    }
+    h1 {
+      font-size: 2em;
+      margin-bottom: 20px;
+      transition: color 0.3s;
+    }
+    button.primary {
+      background-color: #0072ff;
+      border: none;
+      padding: 14px 28px;
+      font-size: 1em;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
+      margin: 10px 5px;
+      box-shadow: 0 5px 15px rgba(0,114,255,0.4);
+    }
+    button.primary:hover {
+      background-color: #005ce6;
+      transform: translateY(-2px);
+    }
+    /* Gauge Styles */
+    .gauge-container {
+      max-width: 320px;
+      margin: 20px auto;
+      position: relative;
+    }
+    svg {
+      overflow: visible;
+    }
+    .gauge-arc {
+      fill: none;
+      stroke: #eee;
+      stroke-width: 20;
+      stroke-linecap: round;
+      transition: stroke 0.3s;
+    }
+    body.dark-mode .gauge-arc {
+      stroke: #555;
+    }
+    .gauge-ticks line {
+      stroke: #bbb;
+      stroke-width: 2;
+      transition: stroke 0.3s;
+    }
+    body.dark-mode .gauge-ticks line {
+      stroke: #888;
+    }
+    .gauge-label {
+      font-size: 13px;
+      fill: #555;
+      font-weight: 600;
+      transition: fill 0.3s;
+    }
+    body.dark-mode .gauge-label {
+      fill: #ccc;
+    }
+    .gauge-needle {
+      stroke: #e63946;
+      stroke-width: 4;
+      stroke-linecap: round;
+      transform-origin: 160px 160px;
+      transition: transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .gauge-center {
+      fill: #e63946;
+    }
+    .speed-value {
+      font-size: 2.5em;
+      margin-top: 10px;
+      font-weight: 700;
+      transition: color 0.3s;
+    }
+    .result {
+      font-size: 1.1em;
+      margin: 5px 0;
+    }
+    /* History Chart Styles */
+    #historyContainer {
+      margin-top: 20px;
+      display: none;
+    }
+    canvas {
+      margin: 0 auto;
+      display: block;
+    }
+    /* Server Map Styles */
+    #mapContainer {
+      margin-top: 20px;
+      height: 250px;
+      display: none;
+    }
+    /* Diagnostics Section */
+    #diagnostics {
+      margin-top: 20px;
+      display: none;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+      font-size: 0.95em;
+    }
+    /* Profile Section */
+    #profileSection {
+      margin-top: 20px;
+      display: none;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+    }
+    #profileSection label, #profileSection input, #profileSection button {
+      font-size: 0.95em;
+    }
+    #profileSection input {
+      padding: 5px;
+      margin-right: 5px;
+    }
+  </style>
+  <!-- Leaflet JS for Server Map -->
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js" integrity="sha256-o9N1j7qP2y3o3p5Hng66mxHR1Sd52Gn7te1t+3j6L7M=" crossorigin=""></script>
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="light-mode">
+  <div class="card light-mode">
+    <!-- Top Bar Icons -->
+    <div class="top-bar">
+      <button onclick="toggleHistory()" title="View History">📊</button>
+      <button onclick="toggleServerMap()" title="View Server Map">🗺️</button>
+      <button onclick="toggleDiagnostics()" title="Show Diagnostics">❓</button>
+      <button onclick="toggleProfile()" title="Profile">👤</button>
+      <button onclick="toggleTheme()" title="Toggle Dark/Light Mode" id="themeToggle">🌙</button>
+      <button onclick="shareResults()" title="Share Results">🔗</button>
+    </div>
+    <h1>Internet Speed Tester</h1>
+    <button class="primary" onclick="runSpeedTest()">Run Speed Test</button>
+    
+    <div class="gauge-container">
+      <svg width="320" height="180">
+        <!-- Background Arc -->
+        <path class="gauge-arc" d="M40 160 A120 120 0 0 1 280 160" />
+        
+        <!-- Tick Marks -->
+        <g class="gauge-ticks">
+          <line x1="40" y1="160" x2="50" y2="160" transform="rotate(0,160,160)" />
+          <line x1="40" y1="160" x2="50" y2="160" transform="rotate(22.5,160,160)" />
+          <line x1="40" y1="160" x2="50" y2="160" transform="rotate(45,160,160)" />
+          <line x1="40" y1="160" x2="50" y2="160" transform="rotate(67.5,160,160)" />
+          <line x1="40" y1="160" x2="50" y2="160" transform="rotate(90,160,160)" />
+          <line x1="40" y1="160" x2="50" y2="160" transform="rotate(112.5,160,160)" />
+          <line x1="40" y1="160" x2="50" y2="160" transform="rotate(135,160,160)" />
+          <line x1="40" y1="160" x2="50" y2="160" transform="rotate(157.5,160,160)" />
+          <line x1="40" y1="160" x2="50" y2="160" transform="rotate(180,160,160)" />
+        </g>
+        
+        <!-- Labels -->
+        <text class="gauge-label" x="50" y="160" text-anchor="middle">0</text>
+        <text class="gauge-label" x="71" y="95" text-anchor="middle">20</text>
+        <text class="gauge-label" x="126" y="55" text-anchor="middle">40</text>
+        <text class="gauge-label" x="194" y="55" text-anchor="middle">60</text>
+        <text class="gauge-label" x="249" y="95" text-anchor="middle">80</text>
+        <text class="gauge-label" x="270" y="160" text-anchor="middle">100</text>
+        
+        <!-- Needle -->
+        <line class="gauge-needle" id="needle" x1="160" y1="160" x2="160" y2="50" />
+        
+        <!-- Center Circle -->
+        <circle class="gauge-center" cx="160" cy="160" r="8" />
+      </svg>
+    </div>
+
+    <div class="speed-value" id="speedDisplay">-- Mbps</div>
+    <div class="result" id="upload">Upload Speed: -- Mbps</div>
+    <div class="result" id="ping">Ping: -- ms</div>
+    
+    <!-- History Chart Canvas (Multi-line for Download, Upload, Ping) -->
+    <div id="historyContainer">
+      <canvas id="historyChart" width="400" height="200"></canvas>
+    </div>
+    
+    <!-- Server Map Container -->
+    <div id="mapContainer"></div>
+    
+    <!-- Diagnostics Section -->
+    <div id="diagnostics"></div>
+    
+    <!-- Profile Section -->
+    <div id="profileSection">
+      <label for="username">Username:</label>
+      <input type="text" id="username" placeholder="Enter name" />
+      <button onclick="saveProfile()">Save</button>
+      <div id="profileMessage"></div>
+    </div>
+
+    <!-- History List -->
+    <div id="historyListContainer" style="margin-top: 20px; display: none;">
+      <h2>Test History</h2>
+      <ul id="historyList" style="list-style-type: none; padding: 0;"></ul>
+    </div>
+  </div>
+
+  <script>
+    // Toggle between light and dark modes
+    function toggleTheme() {
+      const body = document.body;
+      const card = document.querySelector('.card');
+      const themeToggle = document.getElementById('themeToggle');
+      if (body.classList.contains('light-mode')) {
+        body.classList.remove('light-mode');
+        body.classList.add('dark-mode');
+        card.classList.remove('light-mode');
+        card.classList.add('dark-mode');
+        themeToggle.textContent = '☀️';
+      } else {
+        body.classList.remove('dark-mode');
+        body.classList.add('light-mode');
+        card.classList.remove('dark-mode');
+        card.classList.add('light-mode');
+        themeToggle.textContent = '🌙';
+      }
+    }
+
+    // Social Share
+    function shareResults() {
+      const speed = document.getElementById("speedDisplay").textContent;
+      const shareObj = {
+        title: 'Internet Speed Tester',
+        text: `I just tested my internet speed: ${speed}! Check yours out.`,
+        url: window.location.href
+      };
+      if(navigator.share) {
+        navigator.share(shareObj).catch(err => console.error(err));
+      } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert("Link copied to clipboard!");
+      }
+    }
+    
+    // Multi-line History: storing download, upload, and ping
+    let historyData = JSON.parse(localStorage.getItem('speedHistory')) || {download: [], upload: [], ping: []};
+
+    function updateHistoryChart() {
+      const ctx = document.getElementById('historyChart').getContext('2d');
+      if(window.historyChartInstance) {
+        window.historyChartInstance.destroy();
+      }
+      window.historyChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: historyData.download.map((_, i) => i + 1),
+          datasets: [
+            {
+              label: 'Download (Mbps)',
+              data: historyData.download,
+              backgroundColor: 'rgba(0,114,255,0.2)',
+              borderColor: 'rgba(0,114,255,1)',
+              fill: true,
+              tension: 0.3,
+            },
+            {
+              label: 'Upload (Mbps)',
+              data: historyData.upload,
+              backgroundColor: 'rgba(0,200,100,0.2)',
+              borderColor: 'rgba(0,200,100,1)',
+              fill: true,
+              tension: 0.3,
+            },
+            {
+              label: 'Ping (ms)',
+              data: historyData.ping,
+              backgroundColor: 'rgba(200,0,0,0.2)',
+              borderColor: 'rgba(200,0,0,1)',
+              fill: true,
+              tension: 0.3,
+            }
+          ]
+        },
+        options: {
+          scales: {
+            x: { title: { display: true, text: 'Test Number' } },
+            y: { title: { display: true, text: 'Value' } }
+          }
+        }
+      });
+    }
+
+    function toggleHistory() {
+      const container = document.getElementById('historyContainer');
+      const listContainer = document.getElementById('historyListContainer');
+      if (container.style.display === 'block') {
+        container.style.display = 'none';
+        listContainer.style.display = 'none';
+      } else {
+        container.style.display = 'block';
+        listContainer.style.display = 'block';
+        updateHistoryChart();
+        renderHistory();
+      }
+    }
+
+    // Initialize and toggle Server Map using Leaflet
+    let map;
+    let mapInitialized = false;
+    function initMap() {
+      map = L.map('mapContainer').setView([37.773972, -122.431297], 4); // Example: centered over USA
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      // Add dummy server markers
+      L.marker([37.773972, -122.431297]).addTo(map).bindPopup("Server: San Francisco<br>Latency: 20ms");
+      L.marker([40.712776, -74.005974]).addTo(map).bindPopup("Server: New York<br>Latency: 30ms");
+      L.marker([51.507351, -0.127758]).addTo(map).bindPopup("Server: London<br>Latency: 50ms");
+    }
+    function toggleServerMap() {
+      const container = document.getElementById('mapContainer');
+      if (container.style.display === 'block') {
+        container.style.display = 'none';
+      } else {
+        container.style.display = 'block';
+        if (!mapInitialized) {
+          initMap();
+          mapInitialized = true;
+        } else {
+          map.invalidateSize();
+        }
+      }
+    }
+
+    // Diagnostics based on test results
+    function toggleDiagnostics() {
+      const container = document.getElementById('diagnostics');
+      if (container.style.display === 'block') {
+        container.style.display = 'none';
+      } else {
+        container.style.display = 'block';
+      }
+    }
+    function showDiagnostics(download, upload, ping) {
+      const diag = document.getElementById('diagnostics');
+      let messages = [];
+      if (download < 10) {
+        messages.push("Download speed is very low. Consider resetting your router or contacting your ISP.");
+      }
+      if (upload < 5) {
+        messages.push("Upload speed is low. Try reducing background uploads or check your network load.");
+      }
+      if (ping > 150) {
+        messages.push("High ping detected. There might be network congestion or routing issues.");
+      }
+      if (messages.length === 0) {
+        messages.push("Your speeds appear fine. Keep up the good work!");
+      }
+      diag.innerHTML = messages.join("<br>");
+    }
+
+    // Profile Section: Let user save username
+    function toggleProfile() {
+      const container = document.getElementById('profileSection');
+      container.style.display = container.style.display === 'block' ? 'none' : 'block';
+      const savedName = localStorage.getItem('username');
+      if (savedName) {
+        document.getElementById('username').value = savedName;
+      }
+    }
+    function saveProfile() {
+      const name = document.getElementById('username').value.trim();
+      if (name) {
+        localStorage.setItem('username', name);
+        document.getElementById('profileMessage').textContent = "Profile saved!";
+      } else {
+        document.getElementById('profileMessage').textContent = "Please enter a name.";
+      }
+    }
+
+    // Save a new test entry to history
+function saveToHistory(download, upload, ping) {
+    const entry = {
+        date: new Date().toLocaleString(),
+        download,
+        upload,
+        ping
+    };
+    // Retrieve existing history or start a new array if there is none.
+    const history = JSON.parse(localStorage.getItem("speedHistory") || "[]");
+    history.push(entry);
+    localStorage.setItem("speedHistory", JSON.stringify(history));
+    renderHistory();
+}
+
+// Render the history list into an element with id "historyList"
+function renderHistory() {
+    const history = JSON.parse(localStorage.getItem("speedHistory") || "[]");
+    const list = document.getElementById("historyList");
+    list.innerHTML = history.map(item =>
+        `<li>${item.date} - 📥 ${item.download} Mbps, 📤 ${item.upload} Mbps, 🕒 ${item.ping} ms</li>`
+    ).join("");
+}
+
+    // Rotate gauge needle based on download speed
+    function rotateNeedle(speed) {
+      const maxSpeed = 100;
+      const clampedSpeed = Math.min(speed, maxSpeed);
+      const angle = 180 - (clampedSpeed / maxSpeed) * 180;
+      document.getElementById("needle").style.transform = `rotate(${angle}deg)`;
+    }
+  
+    // Run speed test and update all sections
+    async function runSpeedTest() {
+      const downloadSpeed = await testDownload();
+      const uploadSpeed = await testUpload();
+      const pingValue = await testPing();
+      rotateNeedle(downloadSpeed);
+      document.getElementById("speedDisplay").textContent = `${downloadSpeed} Mbps`;
+      document.getElementById("upload").textContent = `Upload Speed: ${uploadSpeed} Mbps`;
+      document.getElementById("ping").textContent = `Ping: ${pingValue} ms`;
+      
+      // Save results in history
+      historyData.download.push(downloadSpeed);
+      historyData.upload.push(uploadSpeed);
+      historyData.ping.push(pingValue);
+      localStorage.setItem('speedHistory', JSON.stringify(historyData));
+      updateHistoryChart();
+      showDiagnostics(downloadSpeed, uploadSpeed, pingValue);
+      saveToHistory(downloadSpeed, uploadSpeed, pingValue);
+      
+      // Confetti effect for high speed (>80 Mbps)
+      if (downloadSpeed > 80) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }
+    }
+  
+    // Test functions
+    async function testDownload() {
+      const fileUrl = "https://speed.hetzner.de/10MB.bin";
+      const start = performance.now();
+      const response = await fetch(fileUrl);
+      const reader = response.body.getReader();
+      let bytes = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bytes += value.length;
+      }
+      const duration = (performance.now() - start) / 1000;
+      return ((bytes * 8) / duration / 1024 / 1024).toFixed(2);
+    }
+  
+    async function testUpload() {
+      const uploadUrl = "https://httpbin.org/post";
+      const data = new Uint8Array(5 * 1024 * 1024);
+      const start = performance.now();
+      await fetch(uploadUrl, {
+        method: "POST",
+        body: data,
+      });
+      const duration = (performance.now() - start) / 1000;
+      return ((data.length * 8) / duration / 1024 / 1024).toFixed(2);
+    }
+  
+    async function testPing() {
+      const pingUrl = "https://www.google.com";
+      const start = performance.now();
+      await fetch(pingUrl, { method: "HEAD", mode: "no-cors" });
+      return (performance.now() - start).toFixed(0);
+    }
+  </script>
+</body>
+</html>
